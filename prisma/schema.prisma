@@ -1,0 +1,281 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  SUSPENDED
+}
+
+enum BookType {
+  PERSONAL
+  SHARED
+}
+
+enum MemberRole {
+  OWNER
+  MEMBER
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+  BOTH
+}
+
+enum BudgetPeriod {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum NotificationType {
+  BUDGET_ALERT
+  SYSTEM
+  INVITE
+  APPROVAL
+}
+
+enum PlanStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum PlanPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum PocketEntryType {
+  DEPOSIT
+  WITHDRAWAL
+}
+
+enum UserFeature {
+  BOOKS
+  BUDGETING
+  PLANNING
+  POCKETS
+  NOTES
+}
+
+model User {
+  id             String              @id @default(cuid())
+  name           String
+  email          String              @unique
+  passwordHash   String?
+  googleSub      String?             @unique
+  role           Role                @default(USER)
+  status         UserStatus          @default(PENDING)
+  avatarUrl      String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  ownedBooks     FinanceBook[]       @relation("BookOwner")
+  memberships    FinanceBookMember[]
+  transactions   Transaction[]
+  notifications  Notification[]
+  plans          FinancialPlan[]
+  pockets        Pocket[]
+  notes          Note[]
+  featureAccess  UserFeatureAccess[]
+}
+
+model UserFeatureAccess {
+  id        String      @id @default(cuid())
+  userId    String
+  feature   UserFeature
+  createdAt DateTime    @default(now())
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, feature])
+  @@index([userId])
+}
+
+model FinanceBook {
+  id           String              @id @default(cuid())
+  name         String
+  description  String?
+  type         BookType            @default(PERSONAL)
+  currency     String              @default("IDR")
+  inviteCode   String?             @unique
+  inviteCodeExpiresAt DateTime?
+  ownerId      String
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  owner        User                @relation("BookOwner", fields: [ownerId], references: [id])
+  members      FinanceBookMember[]
+  categories   Category[]
+  transactions Transaction[]
+  budgets      Budget[]
+}
+
+model FinanceBookMember {
+  id            String      @id @default(cuid())
+  financeBookId String
+  userId        String
+  role          MemberRole  @default(MEMBER)
+  joinedAt      DateTime    @default(now())
+  financeBook   FinanceBook @relation(fields: [financeBookId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([financeBookId, userId])
+  @@index([userId])
+}
+
+model Category {
+  id            String       @id @default(cuid())
+  name          String
+  icon          String       @default("WalletCards")
+  color         String       @default("#64748b")
+  type          CategoryType @default(BOTH)
+  financeBookId String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  financeBook   FinanceBook  @relation(fields: [financeBookId], references: [id], onDelete: Cascade)
+  transactions  Transaction[]
+  budgets       Budget[]
+
+  @@unique([financeBookId, name])
+}
+
+model Transaction {
+  id            String          @id @default(cuid())
+  amount        Decimal
+  type          TransactionType
+  description   String?
+  date          DateTime
+  dateKnown     Boolean         @default(true)
+  originalDateText String?
+  accountingPeriodStart DateTime?
+  accountingPeriodEnd   DateTime?
+  migrationKey  String?          @unique
+  financeBookId String
+  categoryId    String?
+  createdById   String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  financeBook   FinanceBook     @relation(fields: [financeBookId], references: [id], onDelete: Cascade)
+  category      Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdBy     User            @relation(fields: [createdById], references: [id])
+
+  @@index([financeBookId, date])
+  @@index([categoryId])
+}
+
+model Budget {
+  id            String       @id @default(cuid())
+  name          String
+  amount        Decimal
+  period        BudgetPeriod @default(MONTHLY)
+  startDate     DateTime
+  endDate       DateTime
+  alertAt       Int          @default(80)
+  financeBookId String
+  categoryId    String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  financeBook   FinanceBook  @relation(fields: [financeBookId], references: [id], onDelete: Cascade)
+  category      Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([financeBookId, startDate, endDate])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  metadata  String?
+  dedupeKey String           @default(cuid())
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, isRead, createdAt])
+}
+
+model FinancialPlan {
+  id            String       @id @default(cuid())
+  userId        String
+  title         String
+  description   String?
+  targetAmount  Decimal
+  currentAmount Decimal      @default(0)
+  currency      String       @default("IDR")
+  deadline      DateTime?
+  status        PlanStatus   @default(ACTIVE)
+  priority      PlanPriority @default(MEDIUM)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, deadline])
+}
+
+model Pocket {
+  id          String        @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  currency    String        @default("IDR")
+  targetAmount Decimal?
+  color       String        @default("#10b981")
+  icon        String        @default("Wallet")
+  isArchived  Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries     PocketEntry[]
+
+  @@index([userId, isArchived])
+}
+
+model PocketEntry {
+  id        String          @id @default(cuid())
+  pocketId  String
+  amount    Decimal
+  type      PocketEntryType
+  note      String?
+  date      DateTime
+  createdAt DateTime        @default(now())
+  pocket    Pocket          @relation(fields: [pocketId], references: [id], onDelete: Cascade)
+
+  @@index([pocketId, date])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  content   String
+  color     String   @default("#64748b")
+  isPinned  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isPinned, updatedAt])
+}
