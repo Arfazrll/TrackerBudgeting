@@ -15,6 +15,8 @@ export default function FabQuickAdd() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
 
+  if (pathname === "/quick-add") return null;
+
   useEffect(() => {
     let mounted = true;
     (async () => {
