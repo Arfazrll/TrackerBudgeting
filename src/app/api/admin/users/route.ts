@@ -17,6 +17,7 @@ export async function GET() {
         role: true,
         status: true,
         createdAt: true,
+        requirePasswordOnOpen: true,
         _count: { select: { ownedBooks: true, transactions: true } },
       },
       orderBy: { createdAt: "desc" },

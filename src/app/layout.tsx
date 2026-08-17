@@ -6,6 +6,7 @@ import { LanguageProvider } from "@/contexts/language-context";
 import { getRequestLocale } from "@/lib/server-locale";
 import { resolveTranslation } from "@/lib/translations";
 import "./globals.css";
+import FabQuickAdd from "@/components/fab-quick-add";
 
 const geist = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
@@ -25,6 +26,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <LanguageProvider initialLocale={locale}>
             <div id="main-content" tabIndex={-1}>{children}</div>
             <Toaster richColors position="top-right" />
+            {/* Global quick-add FAB */}
+            {/* Client component loaded here so it appears on every page */}
+            <div id="global-fab-root">
+              <FabQuickAdd />
+            </div>
           </LanguageProvider>
         </ThemeProvider>
       </body>

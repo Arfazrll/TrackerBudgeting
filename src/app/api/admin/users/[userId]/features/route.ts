@@ -10,10 +10,22 @@ export async function PATCH(request: Request, context: Context) {
   try {
     await requireAdmin();
     const { userId } = await context.params;
+    const rawBody = await request.json();
+
+    // support updating requirePasswordOnOpen through the same endpoint
+    if (Object.prototype.hasOwnProperty.call(rawBody, "requirePasswordOnOpen")) {
+      const input = z.object({ requirePasswordOnOpen: z.boolean() }).parse(rawBody);
+      const target = await db.user.findUnique({ where: { id: userId }, select: { role: true } });
+      if (!target) return jsonError(await tServer("api.notFound"), 404);
+      if (target.role === "ADMIN") return jsonError(await tServer("api.forbidden"), 422);
+      const user = await db.user.update({ where: { id: userId }, data: { requirePasswordOnOpen: input.requirePasswordOnOpen }, select: { id: true, requirePasswordOnOpen: true } });
+      return Response.json({ requirePasswordOnOpen: user.requirePasswordOnOpen });
+    }
+
     const input = z.object({
       feature: z.enum(["BOOKS", "BUDGETING", "PLANNING", "POCKETS", "NOTES"]),
       enabled: z.boolean(),
-    }).parse(await request.json());
+    }).parse(rawBody);
     const target = await db.user.findUnique({ where: { id: userId }, select: { role: true } });
     if (!target) return jsonError(await tServer("api.notFound"), 404);
     if (target.role === "ADMIN") return jsonError(await tServer("api.forbidden"), 422);

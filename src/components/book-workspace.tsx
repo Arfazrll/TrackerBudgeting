@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useDeferredValue, useMemo, useState } from "react";
+import { FormEvent, useDeferredValue, useMemo, useState, useEffect } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/language-context";
@@ -196,6 +196,21 @@ export function BookWorkspace({
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [typeFilter, setTypeFilter] = useState("ALL");
+  const [userBooks, setUserBooks] = useState<Book[]>([]);
+
+  useEffect(() => {
+    // fetch user's books to allow selecting target for quick transactions
+    (async () => {
+      try {
+        const res = await fetch('/api/books');
+        if (!res.ok) return;
+        const payload = await res.json();
+        setUserBooks(payload.books ?? []);
+      } catch (err) {
+        // ignore fetch errors silently
+      }
+    })();
+  }, []);
   const latestTransactionDate = useMemo(
     () => initialTransactions.reduce<Date>((latest, transaction) => {
       const date = reportingDate(transaction);
@@ -441,8 +456,10 @@ export function BookWorkspace({
       ...(!editingTx || (date && date !== originalDate) ? { date } : {}),
     };
     try {
+      const targetBookId = raw.financeBookId || book.id;
+      const endpoint = editingTx ? `/api/transactions/${editingTx.id}` : `/api/books/${targetBookId}/transactions`;
       const result = await api<{ transaction: Transaction }>(
-        editingTx ? `/api/transactions/${editingTx.id}` : `/api/books/${book.id}/transactions`,
+        endpoint,
         { method: editingTx ? "PATCH" : "POST", body: JSON.stringify(body) },
       );
       setTransactions((items) => editingTx ? items.map((item) => item.id === editingTx.id ? result.transaction : item) : [result.transaction, ...items]);
@@ -1020,6 +1037,16 @@ export function BookWorkspace({
               <div><label className="label">{t("workspace.transactions.typeLabel")}</label><select name="type" defaultValue={editingTx?.type ?? "EXPENSE"} className="input"><option value="EXPENSE">{t("common.expense")}</option><option value="INCOME">{t("common.income")}</option></select></div>
               <div><label className="label">{t("workspace.transactions.amountLabel")}</label><input name="amount" type="number" min="1" step="0.01" defaultValue={editingTx?.amount} required className="input" placeholder="0" /></div>
             </div>
+            {userBooks.length > 1 && (
+              <div>
+                <label className="label">{t("workspace.transactions.targetBookLabel")}</label>
+                <select name="financeBookId" defaultValue={(editingTx as any)?.financeBookId ?? book.id} className="input">
+                  {userBooks.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name} · {b.type === "SHARED" ? t("common.shared") : t("common.personal")}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div><label className="label">{t("workspace.transactions.categoryLabel")}</label><select name="categoryId" defaultValue={editingTx?.categoryId ?? ""} className="input"><option value="">{t("workspace.transactions.noCategory")}</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div>
             <div>
               <label className="label">{t("workspace.transactions.dateLabel")}</label>

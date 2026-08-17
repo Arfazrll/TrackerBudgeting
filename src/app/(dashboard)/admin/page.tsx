@@ -15,6 +15,7 @@ export default async function AdminPage() {
         role: true,
         status: true,
         createdAt: true,
+        requirePasswordOnOpen: true,
         featureAccess: { select: { feature: true } },
         _count: { select: { ownedBooks: true, transactions: true } },
       },

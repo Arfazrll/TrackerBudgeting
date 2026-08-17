@@ -15,6 +15,7 @@ type User = {
   role: "USER" | "ADMIN";
   status: Status;
   createdAt: string;
+  requirePasswordOnOpen?: boolean;
   _count: { ownedBooks: number; transactions: number };
   features: Feature[];
 };
@@ -39,6 +40,8 @@ export function AdminUsers({ initialUsers }: { initialUsers: User[] }) {
   const [showPassword, setShowPassword] = useState(false);
   const [featureUserId, setFeatureUserId] = useState<string | null>(null);
   const [featureLoading, setFeatureLoading] = useState<Feature | null>(null);
+  const [requirePasswordLoading, setRequirePasswordLoading] = useState<string | null>(null);
+
 
   const filtered = users.filter((user) =>
     `${user.name} ${user.email}`.toLowerCase().includes(query.toLowerCase())
@@ -110,6 +113,25 @@ export function AdminUsers({ initialUsers }: { initialUsers: User[] }) {
     }
   }
 
+  async function toggleRequirePassword(userId: string, enabled: boolean) {
+    setRequirePasswordLoading(userId);
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/features`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requirePasswordOnOpen: enabled }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error);
+      setUsers((items) => items.map((item) => item.id === userId ? { ...item, requirePasswordOnOpen: payload.requirePasswordOnOpen } : item));
+      toast.success(t("admin.requirePassword.updated"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("admin.requirePassword.updateFailed"));
+    } finally {
+      setRequirePasswordLoading(null);
+    }
+  }
+
   const featureUser = users.find((user) => user.id === featureUserId) ?? null;
 
   return (
@@ -173,7 +195,14 @@ export function AdminUsers({ initialUsers }: { initialUsers: User[] }) {
                           {user.status !== "ACTIVE" && <button aria-label={t("admin.actionsApprove")} title={t("admin.actionsApprove")} onClick={() => updateStatus(user.id, "ACTIVE")} className="grid size-9 place-items-center rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950"><UserRoundCheck size={17} /></button>}
                           {user.status !== "REJECTED" && user.role !== "ADMIN" && <button aria-label={t("admin.actionsReject")} title={t("admin.actionsReject")} onClick={() => updateStatus(user.id, "REJECTED")} className="grid size-9 place-items-center rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950"><UserRoundX size={17} /></button>}
                           {user.status === "ACTIVE" && user.role !== "ADMIN" && <button aria-label={t("admin.actionsSuspend")} title={t("admin.actionsSuspend")} onClick={() => updateStatus(user.id, "SUSPENDED")} className="grid size-9 place-items-center rounded-lg text-slate-500 hover:bg-[var(--card-muted)]"><Clock3 size={17} /></button>}
-                          {user.role !== "ADMIN" && <button aria-label={t("admin.features.manage")} title={t("admin.features.manage")} onClick={() => setFeatureUserId(user.id)} className="grid size-9 place-items-center rounded-lg text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"><Settings2 size={17} /></button>}
+                          {user.role !== "ADMIN" && (
+                            <>
+                              <button aria-label={user.requirePasswordOnOpen ? t("admin.requirePassword.revoke") : t("admin.requirePassword.require")} title={user.requirePasswordOnOpen ? t("admin.requirePassword.revoke") : t("admin.requirePassword.require")} onClick={() => toggleRequirePassword(user.id, !user.requirePasswordOnOpen)} className="grid size-9 place-items-center rounded-lg hover:bg-[var(--card-muted)]">
+                                {requirePasswordLoading === user.id ? <LoaderCircle className="animate-spin" size={16} /> : (user.requirePasswordOnOpen ? <EyeOff size={17} /> : <Eye size={17} />)}
+                              </button>
+                              <button aria-label={t("admin.features.manage")} title={t("admin.features.manage")} onClick={() => setFeatureUserId(user.id)} className="grid size-9 place-items-center rounded-lg text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"><Settings2 size={17} /></button>
+                            </>
+                          )}
                         </>
                       )}
                     </div>
