@@ -120,11 +120,7 @@ export function DashboardView({
       router.push(type === "PERSONAL" ? "/books/personal" : "/books/shared");
       return;
     }
-    if (matchingBooks.length === 1) {
-      router.push(`/books/${matchingBooks[0].id}?action=add-transaction`);
-      return;
-    }
-    setBookChooser(type);
+    router.push(`/quick-add?type=${type.toLowerCase()}`);
   }
 
   const cards = [
@@ -292,7 +288,7 @@ export function DashboardView({
               {selectedBooks.map((book) => (
                 <Link
                   key={book.id}
-                  href={`/books/${book.id}?action=add-transaction`}
+                  href={`/quick-add?type=${book.type.toLowerCase()}`}
                   onClick={() => setBookChooser(null)}
                   className="flex min-h-16 items-center gap-3 rounded-xl border p-3 transition-colors hover:border-emerald-400 hover:bg-[var(--card-muted)]"
                 >

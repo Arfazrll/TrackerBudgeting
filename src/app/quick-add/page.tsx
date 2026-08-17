@@ -1,10 +1,11 @@
 import QuickAddModal from "@/components/quick-add-modal";
 
-export default function QuickAddPage({ searchParams }: { searchParams?: { type?: string } }) {
-  const type = (searchParams?.type === "shared" ? "SHARED" : searchParams?.type === "personal" ? "PERSONAL" : undefined) as any;
+export default async function QuickAddPage({ searchParams }: { searchParams?: Promise<{ type?: string }> }) {
+  const params = await searchParams;
+  const type = params?.type === "shared" ? "SHARED" : params?.type === "personal" ? "PERSONAL" : undefined;
 
   return (
-    <div className="min-h-screen bg-[#020817] text-slate-50">
+    <div className="min-h-dvh bg-background text-foreground">
       <QuickAddModal initialType={type} />
     </div>
   );

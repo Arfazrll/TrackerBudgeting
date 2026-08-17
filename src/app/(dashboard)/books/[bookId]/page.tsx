@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { BookWorkspace } from "@/components/book-workspace";
 import { requirePageUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -39,6 +39,9 @@ export default async function BookPage({ params, searchParams }: Props) {
     }),
   ]);
   if (!book) notFound();
+  if (action === "add-transaction") {
+    redirect(`/quick-add?type=${book.type.toLowerCase()}`);
+  }
   const invite = await ensureFreshInviteCode(book.id);
   const budgets = await Promise.all(budgetRecords.map(async (budget) => {
     const spent = await getBudgetSpent({
