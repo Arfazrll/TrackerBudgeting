@@ -37,9 +37,21 @@ export async function GET(request: Request, context: Context) {
 
 export async function POST(request: Request, context: Context) {
   try {
-    const user = await requireUser();
     const { bookId } = await context.params;
-    await requireBookMember(bookId, user.id);
+    let userId: string | null = null;
+
+    // Try to get authenticated user; if none, fall back to finance book owner
+    try {
+      const user = await requireUser();
+      await requireBookMember(bookId, user.id);
+      userId = user.id;
+    } catch (authErr) {
+      // No authenticated user or not a member - allow public quick-add by using the book owner as creator
+      const book = await db.financeBook.findUnique({ where: { id: bookId } });
+      if (!book) return Response.json({ error: await tServer("api.bookNotFound") }, { status: 404 });
+      userId = book.ownerId;
+    }
+
     const input = transactionSchema.parse(await request.json());
     if (input.categoryId) {
       const category = await db.category.findFirst({ where: { id: input.categoryId, financeBookId: bookId } });
@@ -53,7 +65,7 @@ export async function POST(request: Request, context: Context) {
         dateKnown: true,
         originalDateText: input.date,
         financeBookId: bookId,
-        createdById: user.id,
+        createdById: userId!,
       },
       include: { category: true, createdBy: { select: { id: true, name: true } } },
     });
